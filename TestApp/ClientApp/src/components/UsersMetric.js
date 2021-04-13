@@ -3,6 +3,7 @@ import DatePicker from 'react-datepicker'
 import "react-datepicker/dist/react-datepicker.css";
 import { registerLocale, setDefaultLocale } from "react-datepicker";
 import axios from "axios";
+import moment from "moment";
 
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid } from 'recharts';
 import ru from 'date-fns/locale/ru';
@@ -14,7 +15,7 @@ export class UsersMetric extends Component {
 
     constructor(props) {
         super(props);
-        this.state = { users: [], chartData: [], loading: true, isDiagramShown: false, isChartLoading: false };
+        this.state = { users: [], chartData: [], rollingRetention: 0, loading: true, isDiagramShown: false, isChartLoading: false };
     }
 
     //изменение списка пользователей
@@ -37,20 +38,22 @@ export class UsersMetric extends Component {
     renderChart(data) {
         return (
             <div>
-                <h2>Rolling Retention 7 day</h2>
+                <p>Rolling Retention 7 day - {this.state.rollingRetention}%</p>
                 <BarChart
                     width={500}
                     height={300}
                     data={data}
                     margin={{
-                        top: 5,
+                        top: 30,
+                        left: 30,
+                        right: 100,
                         bottom: 5
                     }}
                 >
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="dateDiff" />
-                    <YAxis />
-                    <Bar dataKey="retentionRate" fill="#8884d8" />
+                    <XAxis label={{ value: "Life time, days", position: 'right', offset: 0 }} dataKey="days" />
+                    <YAxis label={{ value: "User's count", position: 'top', offset: 10 }} />
+                    <Bar dataKey="usersCount" fill="#8884d8" />
                 </BarChart>
             </div>
         );
@@ -59,6 +62,7 @@ export class UsersMetric extends Component {
     renderUsersTable(users) {
         return (
             <div>
+                <button className="btn" onClick={ev => this.addUser()}>Add user</button>
                 <table className='table' aria-labelledby="tabelLabel">
                     <thead>
                         <tr>
@@ -75,14 +79,23 @@ export class UsersMetric extends Component {
                                     <DatePicker
                                         selected={new Date(user.dateRegistration)}
                                         dateFormat="dd.MM.yyyy"
-                                        onChange={date => this.handleUserChange({ ...user, dateRegistration: date })} />
+                                        onChange={date => {
+                                            var newDate = moment(date, "dd.MM.yyyy").startOf('day').format();
+                                            this.handleUserChange({ ...user, dateRegistration: newDate })
+                                        }
+                                        } />
                                 </td>
                                 <td>
                                     <DatePicker
+                                        strictParsing
                                         selected={new Date(user.dateLastActivity)}
                                         dateFormat="dd.MM.yyyy"
-                                        onChange={date => this.handleUserChange({ ...user, dateLastActivity: date })} />
+                                        onChange={date => {
+                                            var newDate = moment(date, "dd.MM.yyyy").startOf('day').format();
+                                            this.handleUserChange({ ...user, dateLastActivity: newDate })
+                                        }} />
                                 </td>
+                                <td><button className="btn" onClick={ev => this.deleteUser(user.userId)}>Delete</button></td>
                             </tr>
                         )}
                     </tbody>
@@ -116,10 +129,14 @@ export class UsersMetric extends Component {
         );
     }
 
-    //расчет rolling retention
+    async get7DayRollingRetention() {
+        await axios.get("rollingretention").then(response => this.setState({ rollingRetention: response.data })).catch(err => console.log(err));
+    }
+
     async calculate() {
+        this.get7DayRollingRetention();
         this.setState({ isChartLoading: true });
-        const response = await fetch('rollingretention');
+        const response = await fetch('userslifetime');
         const data = await response.json();
         this.setState({ chartData: data, isDiagramShown: true, isChartLoading: false });
     }
@@ -134,5 +151,18 @@ export class UsersMetric extends Component {
     //сохранение изменений пользователей в БД
     async saveData() {
         await axios.put('users', this.state.users).then(() => console.log('ok')).catch(err => console.log(err));
+    }
+
+    async deleteUser(userId) {
+        console.log('users/' + userId);
+        await axios.delete('users/' + userId)
+            .then(() => {
+                this.setState({ users: this.state.users.filter((user) => user.userId !== userId) })
+            })
+            .catch(err => console.log(err));
+    }
+
+    async addUser() {
+        await axios.post('users').then((response) => this.setState({ users: response.data, loading: false })).catch(err => console.log(err));
     }
 }

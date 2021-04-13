@@ -16,35 +16,38 @@ namespace Repository
             _userContext = userContext;
         }
 
-        public IEnumerable<RollingRetentionItem> GetRollingRetention(DateTime dateBegin, int daysCount)
+        public int Get7DayRollingRetention()
         {
-            var regCounts =
+            var dateCreate = _userContext.Users.Min(u => u.DateRegistration);
+            
+            var returnedUsers =
                 _userContext.Users
-                    .GroupBy(u => u.DateRegistration)
-                    .Select(g => new RegCount { RegDate = g.Key, Count = g.Distinct().Count() })
-                    .Where(s => s.RegDate > dateBegin && s.RegDate <= dateBegin.AddDays(daysCount))
-                    .ToList();
-            var dateDiffCounts =
-                _userContext.Users.AsEnumerable()
-                    .GroupBy(u => new { RegDate = u.DateRegistration, DateDiff = (u.DateLastActivity - u.DateRegistration).TotalDays })
-                    .Select(g => new DateDiffCount { RegDate = g.Key.RegDate, DateDiff = (int)g.Key.DateDiff, Count = g.Distinct().Count() })
-                    .Where(s => s.RegDate > dateBegin && s.RegDate <= dateBegin.AddDays(daysCount) && s.DateDiff >= 0 && s.DateDiff <= daysCount)
-                    .ToList();
+                .Where(s =>
+                    s.DateRegistration >= dateCreate &&
+                    s.DateRegistration <= dateCreate.AddDays(7) &&
+                    s.DateLastActivity >= dateCreate.AddDays(7));
+            var registeredUsers =
+                _userContext.Users
+                .Where(u =>
+                    u.DateRegistration >= dateCreate &&
+                    u.DateRegistration <= dateCreate.AddDays(7)
+                );
 
-            return
-                (from rc in regCounts
-                join ddc in dateDiffCounts on rc.RegDate equals ddc.RegDate
-                select new {rc.Count, Count1 = ddc.Count, ddc.DateDiff})
-                .GroupBy(i => i.DateDiff)
-                .Select(g => new RollingRetentionItem
-                {
-                    DateDiff = (int)g.Key,
-                    Days = (int)g.Average(i => i.Count),
-                    RetentionBase = (int)g.Average(i => i.Count1),
-                    RetentionRate = (int)(g.Average(i => i.Count1) / g.Average(i => i.Count) * 100)
-                })
-                .OrderBy(i => i.DateDiff)
-                .ToList();
+            return (int)((float)returnedUsers.Count() / registeredUsers.Count() * 100);
+        }
+
+        public IEnumerable<UsersLifetime> GetUsersLifetime()
+        {
+            var dateCreate = _userContext.Users.Min(u => u.DateRegistration);
+
+            return _userContext.Users
+                    .AsEnumerable()
+                    .GroupBy(u => (u.DateLastActivity - u.DateRegistration).Days)
+                    .Select(g => new UsersLifetime { 
+                        Days = g.Key,
+                        UsersCount = g.Distinct().Count()
+                    })
+                    .OrderBy(u => u.Days);
         }
 
         public IEnumerable<User> GetUsers()
@@ -66,6 +69,24 @@ namespace Repository
         public void UpdateUsers(IEnumerable<User> users)
         {
             _userContext.UpdateRange(users);
+            Save();
+        }
+
+        public void AddUser()
+        {
+            var user = new User
+            {
+                DateLastActivity = DateTime.Now.Date,
+                DateRegistration = DateTime.Now.Date
+            };
+
+            _userContext.Add(user);
+            Save();
+        }
+
+        public void DeleteUser(int userId)
+        {
+            _userContext.Remove(_userContext.Users.FirstOrDefault(u => u.UserId == userId));
             Save();
         }
     }

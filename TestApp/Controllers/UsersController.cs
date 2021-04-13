@@ -30,15 +30,39 @@ namespace TestApp.Controllers
         }
 
         [HttpGet("/rollingretention")]
-        public IEnumerable<RollingRetentionItem> GetRollingRetention()
+        public int Get7DayRollingRetention()
         {
-            return _userRepository.GetRollingRetention(DateTime.Now, 7);
+            return _userRepository.Get7DayRollingRetention();
+        }
+
+        [HttpGet("/userslifetime")]
+        public IEnumerable<UsersLifetime> GetUsersLifetime()
+        {
+            return _userRepository.GetUsersLifetime();
         }
 
         [HttpPut]
         public ActionResult Put(IEnumerable<User> users)
         {
             _userRepository.UpdateUsers(users);
+
+            return Ok();
+        }
+
+        [HttpPost]
+        public ActionResult Post()
+        {
+            _userRepository.AddUser();
+
+            return RedirectToAction("Get");
+        }
+
+        [HttpDelete("{id}")]
+        public ActionResult Delete([FromRoute(Name = "id")] int userId)
+        {
+            Console.WriteLine(userId);
+
+            _userRepository.DeleteUser(userId);
 
             return Ok();
         }

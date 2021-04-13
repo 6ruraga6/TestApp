@@ -13,6 +13,9 @@ namespace Repository
         void Save();
         void UpdateUser(User user);
         void UpdateUsers(IEnumerable<User> users);
-        IEnumerable<RollingRetentionItem> GetRollingRetention(DateTime dateBegin, int dayX);
+        void AddUser();
+        void DeleteUser(int userId);
+        int Get7DayRollingRetention();
+        IEnumerable<UsersLifetime> GetUsersLifetime();
     }
 }

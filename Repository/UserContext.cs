@@ -13,7 +13,7 @@ namespace Repository
 
         private IEnumerable<User> CreateInitialData()
         {
-            return Enumerable.Range(1, 60).Select(i =>
+            return Enumerable.Range(1, 5).Select(i =>
                     {
                         var dateReg = new DateTime(2021, 4, gen.Next(1, 30));
                         var dateLastActivity = new DateTime(2021, 4, gen.Next(dateReg.Day, 30));
@@ -33,11 +33,6 @@ namespace Repository
         }
 
         public DbSet<User> Users { get; set; }
-
-        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-        {
-            optionsBuilder.UseNpgsql("Host=localhost;Port=5432;Database=usersdb;Username=postgres;Password=pass");
-        }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
